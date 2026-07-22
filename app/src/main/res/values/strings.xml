@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hide Root</string>
+    <string name="home_subtitle">مدير إخفاء الروت — احترافي</string>
+    <string name="manage_templates">إدارة القوالب</string>
+    <string name="manage_templates_desc">أنشئ قوالب تحدّد تطبيقات الروت التي تريد إخفاءها</string>
+    <string name="manage_apps">إدارة التطبيقات</string>
+    <string name="manage_apps_desc">اختر التطبيقات التي تكشف الروت وفعّل الحماية عليها</string>
+    <string name="account">إعدادات حسابي</string>
+    <string name="account_desc">معلومات المطوّر والتواصل</string>
+
+    <string name="templates">القوالب</string>
+    <string name="new_template">قالب جديد</string>
+    <string name="template_name">اسم القالب</string>
+    <string name="template_name_hint">مثال: hide root</string>
+    <string name="select_root_apps">اختر تطبيقات الروت لإخفائها</string>
+    <string name="save">حفظ</string>
+    <string name="delete">حذف</string>
+    <string name="search_apps">ابحث عن تطبيق…</string>
+
+    <string name="protected_apps">التطبيقات المحمية</string>
+    <string name="app_settings_title">إعدادات الحماية</string>
+    <string name="protect_switch">تفعيل الحماية على هذا التطبيق</string>
+    <string name="bootloader_switch">إظهار البوت لودر مقفلاً (Locked)</string>
+    <string name="settings_switch">تزوير قيم Settings (وضع نظيف)</string>
+
+    <string name="developer">المطوّر</string>
+    <string name="telegram">تيليجرام</string>
+    <string name="telegram_handle">@fateh7</string>
+    <string name="open_telegram">فتح تيليجرام</string>
+    <string name="saved">تم الحفظ</string>
+    <string name="empty_templates">لا توجد قوالب بعد. اضغط + لإنشاء واحد.</string>
+    <string name="count_selected">تم اختيار %1$d تطبيق</string>
+</resources>

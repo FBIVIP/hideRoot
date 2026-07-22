@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#0B0E13</color>
+    <color name="surface">#151A22</color>
+    <color name="surface2">#1D2530</color>
+    <color name="stroke">#26303D</color>
+    <color name="accent">#37E29A</color>
+    <color name="accent_dim">#1E9E6E</color>
+    <color name="danger">#FF5A6E</color>
+    <color name="text">#EAF1F8</color>
+    <color name="text_dim">#8A98A8</color>
+    <color name="white">#FFFFFF</color>
+    <color name="grad_top">#0F5C46</color>
+    <color name="grad_bottom">#0B0E13</color>
+</resources>
