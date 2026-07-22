@@ -29,6 +29,7 @@
         android:textSize="14sp" />
 
     <include layout="@layout/part_search" />
+    <include layout="@layout/part_filter" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recycler"

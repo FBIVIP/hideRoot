@@ -15,6 +15,7 @@ import com.fateh7.hiderootapps.data.AppItem;
 import com.fateh7.hiderootapps.data.Store;
 import com.fateh7.hiderootapps.ui.AppSelectAdapter;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.button.MaterialButtonToggleGroup;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -30,6 +31,8 @@ public class TemplateEditActivity extends AppCompatActivity {
     private EditText nameField;
     private final List<AppItem> all = new ArrayList<>();
     private String editingName;
+    private boolean showSystem = false;
+    private String query = "";
 
     @Override
     protected void onCreate(Bundle b) {
@@ -57,7 +60,15 @@ public class TemplateEditActivity extends AppCompatActivity {
         search.addTextChangedListener(new TextWatcher() {
             public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
             public void onTextChanged(CharSequence s, int a, int b, int c) {}
-            public void afterTextChanged(Editable s) { filter(s.toString()); }
+            public void afterTextChanged(Editable s) { query = s.toString(); applyFilter(); }
+        });
+
+        MaterialButtonToggleGroup fg = findViewById(R.id.filter_group);
+        fg.check(R.id.btn_user);
+        fg.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+            if (!isChecked) return;
+            showSystem = (checkedId == R.id.btn_all);
+            applyFilter();
         });
 
         ((MaterialButton) findViewById(R.id.btn_save)).setOnClickListener(v -> save());
@@ -71,23 +82,22 @@ public class TemplateEditActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 all.clear();
                 all.addAll(loaded);
-                adapter.setItems(all);
+                applyFilter();
             });
         }).start();
     }
 
-    private void filter(String q) {
-        String query = q.toLowerCase(Locale.ROOT).trim();
-        if (query.isEmpty()) {
-            adapter.setItems(all);
-            return;
-        }
+    private void applyFilter() {
+        String q = query.toLowerCase(Locale.ROOT).trim();
         List<AppItem> out = new ArrayList<>();
         for (AppItem it : all) {
-            if (it.label.toLowerCase(Locale.ROOT).contains(query)
-                    || it.pkg.toLowerCase(Locale.ROOT).contains(query)) {
-                out.add(it);
+            if (!showSystem && it.isSystem) continue;
+            if (!q.isEmpty()
+                    && !it.label.toLowerCase(Locale.ROOT).contains(q)
+                    && !it.pkg.toLowerCase(Locale.ROOT).contains(q)) {
+                continue;
             }
+            out.add(it);
         }
         adapter.setItems(out);
     }
@@ -98,7 +108,6 @@ public class TemplateEditActivity extends AppCompatActivity {
             Toast.makeText(this, R.string.template_name, Toast.LENGTH_SHORT).show();
             return;
         }
-        // If renamed, drop the old entry.
         if (editingName != null && !editingName.equals(name)) {
             store.deleteTemplate(editingName);
         }

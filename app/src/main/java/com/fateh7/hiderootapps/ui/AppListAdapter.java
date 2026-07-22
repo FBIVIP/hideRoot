@@ -14,10 +14,12 @@ import com.fateh7.hiderootapps.data.AppItem;
 import com.google.android.material.checkbox.MaterialCheckBox;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Apps list for "Manage Apps": checkbox reflects protected state, tap opens config. */
+/** Apps list for "Manage Apps": protected apps sort to the top; tap opens config. */
 public class AppListAdapter extends RecyclerView.Adapter<AppListAdapter.VH> {
 
     public interface OnAppClick {
@@ -25,7 +27,7 @@ public class AppListAdapter extends RecyclerView.Adapter<AppListAdapter.VH> {
     }
 
     private final List<AppItem> items = new ArrayList<>();
-    private Set<String> protectedSet;
+    private Set<String> protectedSet = new HashSet<>();
     private final OnAppClick listener;
 
     public AppListAdapter(OnAppClick l) {
@@ -35,12 +37,23 @@ public class AppListAdapter extends RecyclerView.Adapter<AppListAdapter.VH> {
     public void setItems(List<AppItem> list) {
         items.clear();
         items.addAll(list);
+        sortProtectedFirst();
         notifyDataSetChanged();
     }
 
     public void setProtected(Set<String> set) {
-        this.protectedSet = set;
+        this.protectedSet = set != null ? set : new HashSet<>();
+        sortProtectedFirst();
         notifyDataSetChanged();
+    }
+
+    private void sortProtectedFirst() {
+        Collections.sort(items, (a, b) -> {
+            boolean pa = protectedSet.contains(a.pkg);
+            boolean pb = protectedSet.contains(b.pkg);
+            if (pa != pb) return pa ? -1 : 1;
+            return a.label.compareToIgnoreCase(b.label);
+        });
     }
 
     @NonNull
@@ -57,7 +70,7 @@ public class AppListAdapter extends RecyclerView.Adapter<AppListAdapter.VH> {
         h.icon.setImageDrawable(it.icon);
         h.label.setText(it.label);
         h.pkg.setText(it.pkg);
-        h.check.setChecked(protectedSet != null && protectedSet.contains(it.pkg));
+        h.check.setChecked(protectedSet.contains(it.pkg));
         h.itemView.setOnClickListener(v -> listener.onClick(it));
     }
 

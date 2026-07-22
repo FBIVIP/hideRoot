@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.fateh7.hiderootapps.data.AppItem;
 import com.fateh7.hiderootapps.data.Store;
 import com.fateh7.hiderootapps.ui.AppListAdapter;
+import com.google.android.material.button.MaterialButtonToggleGroup;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +25,8 @@ public class AppsActivity extends AppCompatActivity {
     private Store store;
     private AppListAdapter adapter;
     private final List<AppItem> all = new ArrayList<>();
+    private boolean showSystem = false;
+    private String query = "";
 
     @Override
     protected void onCreate(Bundle b) {
@@ -48,7 +51,15 @@ public class AppsActivity extends AppCompatActivity {
         search.addTextChangedListener(new TextWatcher() {
             public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
             public void onTextChanged(CharSequence s, int a, int b, int c) {}
-            public void afterTextChanged(Editable s) { filter(s.toString()); }
+            public void afterTextChanged(Editable s) { query = s.toString(); applyFilter(); }
+        });
+
+        MaterialButtonToggleGroup fg = findViewById(R.id.filter_group);
+        fg.check(R.id.btn_user);
+        fg.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+            if (!isChecked) return;
+            showSystem = (checkedId == R.id.btn_all);
+            applyFilter();
         });
 
         loadApps();
@@ -66,25 +77,25 @@ public class AppsActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 all.clear();
                 all.addAll(loaded);
-                adapter.setItems(all);
+                applyFilter();
                 adapter.setProtected(store.protectedApps());
             });
         }).start();
     }
 
-    private void filter(String q) {
-        String query = q.toLowerCase(Locale.ROOT).trim();
-        if (query.isEmpty()) {
-            adapter.setItems(all);
-            return;
-        }
+    private void applyFilter() {
+        String q = query.toLowerCase(Locale.ROOT).trim();
         List<AppItem> out = new ArrayList<>();
         for (AppItem it : all) {
-            if (it.label.toLowerCase(Locale.ROOT).contains(query)
-                    || it.pkg.toLowerCase(Locale.ROOT).contains(query)) {
-                out.add(it);
+            if (!showSystem && it.isSystem) continue;
+            if (!q.isEmpty()
+                    && !it.label.toLowerCase(Locale.ROOT).contains(q)
+                    && !it.pkg.toLowerCase(Locale.ROOT).contains(q)) {
+                continue;
             }
+            out.add(it);
         }
         adapter.setItems(out);
+        adapter.setProtected(store.protectedApps());
     }
 }

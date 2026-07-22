@@ -14,14 +14,16 @@ public class AppItem {
     public final String label;
     public final String pkg;
     public final Drawable icon;
+    public final boolean isSystem;
 
-    public AppItem(String label, String pkg, Drawable icon) {
+    public AppItem(String label, String pkg, Drawable icon, boolean isSystem) {
         this.label = label;
         this.pkg = pkg;
         this.icon = icon;
+        this.isSystem = isSystem;
     }
 
-    /** Loads all launchable / user + system apps, sorted by label. */
+    /** Loads every installed app (user + system), sorted by label. */
     public static List<AppItem> loadAll(Context ctx) {
         PackageManager pm = ctx.getPackageManager();
         List<AppItem> list = new ArrayList<>();
@@ -29,7 +31,9 @@ public class AppItem {
             try {
                 String label = pm.getApplicationLabel(ai).toString();
                 Drawable icon = pm.getApplicationIcon(ai);
-                list.add(new AppItem(label, ai.packageName, icon));
+                boolean sys = (ai.flags & ApplicationInfo.FLAG_SYSTEM) != 0
+                        || (ai.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0;
+                list.add(new AppItem(label, ai.packageName, icon, sys));
             } catch (Throwable ignored) {
             }
         }

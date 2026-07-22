@@ -7,6 +7,7 @@
 
     <include layout="@layout/part_topbar" />
     <include layout="@layout/part_search" />
+    <include layout="@layout/part_filter" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recycler"

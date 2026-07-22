@@ -14,11 +14,12 @@ import com.fateh7.hiderootapps.data.AppItem;
 import com.google.android.material.checkbox.MaterialCheckBox;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Shows apps with a checkbox; tracks the selected package set. */
+/** Shows apps with a checkbox; selected items are sorted to the top. */
 public class AppSelectAdapter extends RecyclerView.Adapter<AppSelectAdapter.VH> {
 
     private final List<AppItem> items = new ArrayList<>();
@@ -27,17 +28,28 @@ public class AppSelectAdapter extends RecyclerView.Adapter<AppSelectAdapter.VH> 
     public void setItems(List<AppItem> list) {
         items.clear();
         items.addAll(list);
+        sortSelectedFirst();
         notifyDataSetChanged();
     }
 
     public void setSelected(Set<String> sel) {
         selected.clear();
         selected.addAll(sel);
+        sortSelectedFirst();
         notifyDataSetChanged();
     }
 
     public Set<String> getSelected() {
         return new HashSet<>(selected);
+    }
+
+    private void sortSelectedFirst() {
+        Collections.sort(items, (a, b) -> {
+            boolean sa = selected.contains(a.pkg);
+            boolean sb = selected.contains(b.pkg);
+            if (sa != sb) return sa ? -1 : 1;
+            return a.label.compareToIgnoreCase(b.label);
+        });
     }
 
     @NonNull
@@ -58,7 +70,8 @@ public class AppSelectAdapter extends RecyclerView.Adapter<AppSelectAdapter.VH> 
         h.itemView.setOnClickListener(v -> {
             if (selected.contains(it.pkg)) selected.remove(it.pkg);
             else selected.add(it.pkg);
-            h.check.setChecked(selected.contains(it.pkg));
+            sortSelectedFirst();
+            notifyDataSetChanged();
         });
     }
 
