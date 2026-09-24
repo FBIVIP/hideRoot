@@ -4,23 +4,25 @@
 
     <application
         android:allowBackup="false"
-        android:label="RootHider"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.RootHider"
         android:supportsRtl="true">
 
-        <!-- Marks this APK as an Xposed / LSPosed module -->
-        <meta-data
-            android:name="xposedmodule"
-            android:value="true" />
-        <meta-data
-            android:name="xposeddescription"
-            android:value="Hides root artifacts from scoped apps (Java layer). Pair with Shamiko + a Zygisk native module." />
-        <!-- Minimum Xposed API version -->
-        <meta-data
-            android:name="xposedminversion"
-            android:value="82" />
-        <!-- Scope hint for LSPosed manager (edit to your target packages) -->
-        <meta-data
-            android:name="xposedscope"
-            android:resource="@array/xposed_scope" />
+        <!-- Home page -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Xposed / LSPosed module metadata -->
+        <meta-data android:name="xposedmodule" android:value="true" />
+        <meta-data android:name="xposeddescription"
+            android:value="Hides root + hides chosen apps from scoped targets, with anti-hook-detection. Pair with the RootHider Zygisk module." />
+        <meta-data android:name="xposedminversion" android:value="93" />
+        <meta-data android:name="xposedscope" android:resource="@array/xposed_scope" />
     </application>
 </manifest>

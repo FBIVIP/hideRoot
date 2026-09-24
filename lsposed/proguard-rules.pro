@@ -1,3 +1,4 @@
-# Keep the Xposed entry class and its name intact.
 -keep class com.fateh7.roothider.RootHiderHook { *; }
+-keep class com.fateh7.roothider.MainActivity { *; }
+-keep class com.fateh7.roothider.Config { *; }
 -keepattributes *Annotation*

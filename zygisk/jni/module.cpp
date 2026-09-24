@@ -1,5 +1,5 @@
 /*
- * RootHider — Zygisk native module (hardened).
+ * RootHider — Zygisk native module (hardened, API-corrected).
  *
  * For TARGET apps only (read from /data/adb/roothider/target.txt), it:
  *   - hides root paths from libc (access/stat/open/fopen/readlinkat/...)
@@ -9,9 +9,7 @@
  *
  * LIMITS (honest):
  *   - PLT-hooking libc does NOT catch RAW syscalls (syscall(SYS_openat,...)).
- *     Inline/syscall hooking would, but is far more invasive.
- *   - Memory-based Zygisk detection is a separate problem: pair with a proper
- *     unmount/hider (ReZygisk + NoHello, or Zygisk Next / Zygisk Assistant).
+ *   - Memory-based Zygisk detection needs a proper unmount/hider.
  *   - Play Integrity STRONG is hardware-backed: needs PIF / a valid keybox.
  */
 
@@ -25,10 +23,18 @@
 #include <sys/stat.h>
 #include <sys/statfs.h>
 #include <sys/mman.h>
+#include <sys/syscall.h>
+#include <sys/sysmacros.h>
 #include <sys/system_properties.h>
+#include <linux/memfd.h>
 #include <limits.h>
 #include <unistd.h>
 #include <string>
+#include <vector>
+#include <set>
+#include <utility>
+#include <mutex>
+#include <dlfcn.h>
 
 #include "zygisk.hpp"
 
@@ -36,8 +42,22 @@ using zygisk::Api;
 using zygisk::AppSpecializeArgs;
 using zygisk::ServerSpecializeArgs;
 
+static Api *g_api = nullptr;                 // set in onLoad, used by dlopen re-hook
+static std::set<std::pair<dev_t, ino_t>> g_seen;
+static std::mutex g_mtx;
+static void rehook_new_libs();               // fwd decl (defined after HOOKS)
+
 #define LOG_TAG "RootHider"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+
+#ifndef MFD_CLOEXEC
+#define MFD_CLOEXEC 0x0001U
+#endif
+
+/* memfd_create is not declared for API < 30 — call it via syscall. */
+static int rh_memfd(const char *name, unsigned int flags) {
+    return (int) syscall(__NR_memfd_create, name, flags);
+}
 
 /* ---------------------------------------------------------------------- */
 /* Taint matching (root traces + this module's own traces = self-hide)     */
@@ -47,7 +67,8 @@ static const char *TAINT_KEYS[] = {
         "magisk", "/data/adb", "ksu", "kernelsu", "apatch", "supersu",
         "/su/", "superuser", "zygisk", "rezygisk", "xposed", "lsposed",
         "riru", "shamiko", "/sbin/su", "busybox", "daemonsu",
-        "roothider", "libroothider", "nohello", "tricky"
+        "roothider", "libroothider", "nohello", "tricky",
+        "frida", "gum-js", "gadget", "linjector", "substrate", "hluda"
 };
 
 static bool is_tainted(const char *p) {
@@ -56,7 +77,6 @@ static bool is_tainted(const char *p) {
     return false;
 }
 
-/* Sensitive /proc files we return a scrubbed copy of. */
 static bool is_proc_sensitive(const char *p) {
     if (!p) return false;
     return strcmp(p, "/proc/self/maps") == 0 ||
@@ -72,24 +92,24 @@ static bool is_proc_sensitive(const char *p) {
 
 struct PropSpoof { const char *name; const char *val; };
 static const PropSpoof PROP_SPOOF[] = {
-        {"ro.boot.verifiedbootstate",     "green"},
-        {"vendor.boot.verifiedbootstate", "green"},
-        {"ro.boot.vbmeta.device_state",   "locked"},
+        {"ro.boot.verifiedbootstate",      "green"},
+        {"vendor.boot.verifiedbootstate",  "green"},
+        {"ro.boot.vbmeta.device_state",    "locked"},
         {"vendor.boot.vbmeta.device_state","locked"},
-        {"ro.boot.flash.locked",          "1"},
-        {"ro.boot.veritymode",            "enforcing"},
-        {"ro.boot.warranty_bit",          "0"},
-        {"ro.warranty_bit",               "0"},
-        {"ro.vendor.warranty_bit",        "0"},
-        {"sys.oem_unlock_allowed",        "0"},
-        {"ro.oem_unlock_supported",       "0"},
-        {"ro.secure",                     "1"},
-        {"ro.adb.secure",                 "1"},
-        {"ro.debuggable",                 "0"},
-        {"service.adb.root",              "0"},
-        {"ro.build.selinux",              "1"},
-        {"ro.build.tags",                 "release-keys"},
-        {"ro.build.type",                 "user"},
+        {"ro.boot.flash.locked",           "1"},
+        {"ro.boot.veritymode",             "enforcing"},
+        {"ro.boot.warranty_bit",           "0"},
+        {"ro.warranty_bit",                "0"},
+        {"ro.vendor.warranty_bit",         "0"},
+        {"sys.oem_unlock_allowed",         "0"},
+        {"ro.oem_unlock_supported",        "0"},
+        {"ro.secure",                      "1"},
+        {"ro.adb.secure",                  "1"},
+        {"ro.debuggable",                  "0"},
+        {"service.adb.root",               "0"},
+        {"ro.build.selinux",               "1"},
+        {"ro.build.tags",                  "release-keys"},
+        {"ro.build.type",                  "user"},
 };
 
 /* ---------------------------------------------------------------------- */
@@ -102,18 +122,18 @@ static int scrub_proc_to_fd(const char *path) {
     FILE *real = orig_fopen ? orig_fopen(path, "re") : fopen(path, "re");
     if (!real) return -1;
 
-    int mfd = memfd_create("rh", MFD_CLOEXEC);
+    int mfd = rh_memfd("rh", MFD_CLOEXEC);
     if (mfd < 0) { fclose(real); return -1; }
 
     bool is_status = (strcmp(path, "/proc/self/status") == 0);
     char *line = nullptr; size_t n = 0; ssize_t len;
     while ((len = getline(&line, &n, real)) != -1) {
         if (is_status && strncmp(line, "TracerPid:", 10) == 0) {
-            const char *clean = "TracerPid:\t0\n";        // hide any debugger
+            const char *clean = "TracerPid:\t0\n";
             write(mfd, clean, strlen(clean));
             continue;
         }
-        if (is_tainted(line)) continue;                    // drop root lines
+        if (is_tainted(line)) continue;
         write(mfd, line, (size_t) len);
     }
     free(line);
@@ -203,13 +223,138 @@ DECL(int, __system_property_get, const char *name, char *value) {
     return orig___system_property_get(name, value);
 }
 
+/*
+ * Intercept the libc syscall() dispatcher. Catches detectors that bypass the
+ * normal wrappers with syscall(__NR_openat, ...) etc. NOTE: this cannot catch
+ * inline `svc #0` assembly that does not go through libc's syscall symbol.
+ */
+DECL(long, syscall, long number, ...) {
+    va_list ap; va_start(ap, number);
+    long a0 = va_arg(ap, long); long a1 = va_arg(ap, long);
+    long a2 = va_arg(ap, long); long a3 = va_arg(ap, long);
+    long a4 = va_arg(ap, long); long a5 = va_arg(ap, long);
+    va_end(ap);
+
+    const char *path = nullptr;
+    switch (number) {
+#ifdef __NR_openat
+        case __NR_openat:      path = (const char *) a1; break;   // openat(dirfd, path, ...)
+#endif
+#ifdef __NR_faccessat
+        case __NR_faccessat:   path = (const char *) a1; break;
+#endif
+#ifdef __NR_faccessat2
+        case __NR_faccessat2:  path = (const char *) a1; break;
+#endif
+#ifdef __NR_newfstatat
+        case __NR_newfstatat:  path = (const char *) a1; break;
+#endif
+#ifdef __NR_statx
+        case __NR_statx:       path = (const char *) a1; break;
+#endif
+#ifdef __NR_readlinkat
+        case __NR_readlinkat:  path = (const char *) a1; break;
+#endif
+        default: break;
+    }
+
+    if (path && is_tainted(path)) { errno = ENOENT; return -1; }
+#ifdef __NR_openat
+    if (number == __NR_openat && path && is_proc_sensitive(path)) {
+        int f = scrub_proc_to_fd(path);
+        if (f >= 0) return f;
+    }
+#endif
+    return orig_syscall(number, a0, a1, a2, a3, a4, a5);
+}
+
+/*
+ * Re-hook when a new library is dlopen'd, so detection code loaded AFTER
+ * process start is covered too (a common way apps defeat startup-only hooks).
+ */
+DECL(void *, dlopen, const char *name, int flag) {
+    void *h = orig_dlopen(name, flag);
+    if (h) rehook_new_libs();
+    return h;
+}
+DECL(void *, android_dlopen_ext, const char *name, int flag, const void *info) {
+    void *h = orig_android_dlopen_ext(name, flag, info);
+    if (h) rehook_new_libs();
+    return h;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Hook table + target-library discovery                                   */
+/* ---------------------------------------------------------------------- */
+
+struct HookDef { const char *sym; void *repl; void **backup; };
+static HookDef HOOKS[] = {
+        {"access",                (void *) my_access,                (void **) &orig_access},
+        {"faccessat",             (void *) my_faccessat,             (void **) &orig_faccessat},
+        {"stat",                  (void *) my_stat,                  (void **) &orig_stat},
+        {"lstat",                 (void *) my_lstat,                 (void **) &orig_lstat},
+        {"fstatat",               (void *) my_fstatat,               (void **) &orig_fstatat},
+        {"statfs",                (void *) my_statfs,                (void **) &orig_statfs},
+        {"readlinkat",            (void *) my_readlinkat,            (void **) &orig_readlinkat},
+        {"open",                  (void *) my_open,                  (void **) &orig_open},
+        {"openat",                (void *) my_openat,                (void **) &orig_openat},
+        {"fopen",                 (void *) my_fopen,                 (void **) &orig_fopen},
+        {"syscall",               (void *) my_syscall,               (void **) &orig_syscall},
+        {"__system_property_get", (void *) my___system_property_get, (void **) &orig___system_property_get},
+        {"dlopen",                (void *) my_dlopen,                (void **) &orig_dlopen},
+        {"android_dlopen_ext",    (void *) my_android_dlopen_ext,    (void **) &orig_android_dlopen_ext},
+};
+
+/*
+ * The new Zygisk API hooks the PLT/GOT of a target ELF identified by
+ * (dev, inode). We enumerate file-backed executable mappings from
+ * /proc/self/maps and hook each new one. Called at startup and again on
+ * every dlopen, so libraries loaded later are covered automatically.
+ */
+static void rehook_new_libs() {
+    if (!g_api) return;
+    std::lock_guard<std::mutex> lk(g_mtx);
+
+    FILE *f = orig_fopen ? orig_fopen("/proc/self/maps", "re")
+                         : fopen("/proc/self/maps", "re");
+    if (!f) return;
+
+    bool added = false;
+    char line[512];
+    while (fgets(line, sizeof(line), f)) {
+        char perms[8] = {0};
+        unsigned int maj = 0, min = 0;
+        unsigned long ino = 0;
+        char path[256] = {0};
+        if (sscanf(line, "%*s %7s %*s %x:%x %lu %255s",
+                   perms, &maj, &min, &ino, path) < 5)
+            continue;
+        if (ino == 0) continue;
+        if (!strchr(perms, 'x')) continue;
+        if (path[0] != '/') continue;
+        if (strstr(path, "libroothider")) continue;
+
+        dev_t dev = makedev(maj, min);
+        auto key = std::make_pair(dev, (ino_t) ino);
+        if (!g_seen.insert(key).second) continue;   // already hooked
+
+        for (auto &h : HOOKS)
+            g_api->pltHookRegister(dev, (ino_t) ino, h.sym, h.repl, h.backup);
+        added = true;
+    }
+    fclose(f);
+    if (added) g_api->pltHookCommit();
+}
+
 /* ---------------------------------------------------------------------- */
 /* Zygisk module                                                           */
 /* ---------------------------------------------------------------------- */
 
 class RootHider : public zygisk::ModuleBase {
 public:
-    void onLoad(Api *api, JNIEnv *env) override { this->api = api; this->env = env; }
+    void onLoad(Api *api, JNIEnv *env) override {
+        this->api = api; this->env = env; g_api = api;
+    }
 
     void preAppSpecialize(AppSpecializeArgs *args) override {
         enabled = false;
@@ -245,24 +390,9 @@ private:
         return match == 1;
     }
 
-    void hook(const char *sym, void *repl, void **backup) {
-        api->pltHookRegister(".*\\libc\\.so$", sym, repl, backup);
-    }
-
     void install_hooks() {
-        hook("access",                (void *) my_access,                (void **) &orig_access);
-        hook("faccessat",             (void *) my_faccessat,             (void **) &orig_faccessat);
-        hook("stat",                  (void *) my_stat,                  (void **) &orig_stat);
-        hook("lstat",                 (void *) my_lstat,                 (void **) &orig_lstat);
-        hook("fstatat",               (void *) my_fstatat,               (void **) &orig_fstatat);
-        hook("statfs",                (void *) my_statfs,                (void **) &orig_statfs);
-        hook("readlinkat",            (void *) my_readlinkat,            (void **) &orig_readlinkat);
-        hook("open",                  (void *) my_open,                  (void **) &orig_open);
-        hook("openat",                (void *) my_openat,                (void **) &orig_openat);
-        hook("fopen",                 (void *) my_fopen,                 (void **) &orig_fopen);
-        hook("__system_property_get", (void *) my___system_property_get, (void **) &orig___system_property_get);
-        api->pltHookCommit();
-        LOGD("hardened hooks installed for target");
+        rehook_new_libs();   // hooks all currently-loaded libs; dlopen keeps it current
+        LOGD("hardened hooks installed (with dlopen re-hook)");
     }
 };
 
