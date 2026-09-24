@@ -1,5 +1,15 @@
+# Gradle / Android
 .gradle/
 build/
 local.properties
 *.iml
 .idea/
+
+# NDK
+zygisk/libs/
+zygisk/obj/
+zygisk/jni/zygisk.hpp
+
+# Artifacts
+*.zip
+!config/*.zip

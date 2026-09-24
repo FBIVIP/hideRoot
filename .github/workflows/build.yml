@@ -1,11 +1,15 @@
-name: Build APK
+name: Build RootHider Suite
 
 on:
   push:
-  workflow_dispatch:   # lets you trigger it manually from the Actions tab
+    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
-  build:
+  # ---------------------------------------------------------------- #
+  #  LSPosed module (Java layer) -> APK                               #
+  # ---------------------------------------------------------------- #
+  lsposed:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,18 +20,68 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
 
-      # Pin Gradle to a version compatible with AGP 8.2.2, then build
-      - name: Generate Gradle wrapper
-        run: gradle wrapper --gradle-version 8.2
+      - name: Build LSPosed APK
+        run: gradle :lsposed:assembleDebug --no-daemon
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon
-
-      - name: Upload APK
+      - name: Upload LSPosed APK
         uses: actions/upload-artifact@v4
         with:
-          name: HideRootApps-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: RootHider-LSPosed-APK
+          path: lsposed/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------- #
+  #  Zygisk module (native layer) -> flashable zip                   #
+  # ---------------------------------------------------------------- #
+  zygisk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r26d
+          add-to-path: true
+
+      - name: Fetch Zygisk API header
+        run: |
+          if [ ! -f zygisk/jni/zygisk.hpp ]; then
+            curl -fsSL -o zygisk/jni/zygisk.hpp \
+              https://raw.githubusercontent.com/topjohnwu/zygisk-module-sample/master/module/jni/zygisk.hpp
+          fi
+          test -f zygisk/jni/zygisk.hpp
+
+      - name: Build native libraries
+        env:
+          NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          cd zygisk
+          "$NDK/ndk-build" \
+            NDK_PROJECT_PATH=. \
+            APP_BUILD_SCRIPT=jni/Android.mk \
+            NDK_APPLICATION_MK=jni/Application.mk \
+            NDK_LIBS_OUT=libs \
+            NDK_OUT=obj \
+            -j$(nproc)
+
+      - name: Assemble Zygisk module
+        run: |
+          cd zygisk
+          cp libs/arm64-v8a/libroothider.so   module/zygisk/arm64-v8a.so
+          cp libs/armeabi-v7a/libroothider.so module/zygisk/armeabi-v7a.so
+          cd module
+          zip -r9 ../../RootHider-Zygisk.zip . -x ".*"
+
+      - name: Upload Zygisk module
+        uses: actions/upload-artifact@v4
+        with:
+          name: RootHider-Zygisk
+          path: RootHider-Zygisk.zip
+          if-no-files-found: error

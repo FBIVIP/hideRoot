@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.fateh7.roothider">
+
+    <application
+        android:allowBackup="false"
+        android:label="RootHider"
+        android:supportsRtl="true">
+
+        <!-- Marks this APK as an Xposed / LSPosed module -->
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="Hides root artifacts from scoped apps (Java layer). Pair with Shamiko + a Zygisk native module." />
+        <!-- Minimum Xposed API version -->
+        <meta-data
+            android:name="xposedminversion"
+            android:value="82" />
+        <!-- Scope hint for LSPosed manager (edit to your target packages) -->
+        <meta-data
+            android:name="xposedscope"
+            android:resource="@array/xposed_scope" />
+    </application>
+</manifest>

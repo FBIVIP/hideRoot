@@ -6,13 +6,12 @@ pluginManagement {
     }
 }
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         google()
         mavenCentral()
-        // Xposed API (compileOnly) lives here, not on mavenCentral
         maven { url 'https://api.xposed.info/' }
     }
 }
-rootProject.name = "HideRootApps"
-include ':app'
+rootProject.name = "RootHiderSuite"
+include ':lsposed'
