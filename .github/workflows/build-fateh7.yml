@@ -40,5 +40,5 @@ jobs:
           if-no-files-found: warn
           path: |
             app/build/outputs/apk/**/*.apk
-            zygote/build/outputs/**/*.zip
+            zygote/build/**/*.zip
             zygote/build/outputs/**/*.apk

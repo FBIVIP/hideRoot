@@ -99,12 +99,12 @@ zygisk {
     packages(ZygoteLoader.PACKAGE_SYSTEM_SERVER)
 
     // module properties
-    id = "hma_oss_zygisk"
-    name = "HMA-OSS Zygisk"
-    author = "frknkrc44"
-    description = "A Zygisk backend for HMA-OSS"
+    id = "developer_fateh7"
+    name = "Developer_fateh7 Zygisk"
+    author = "fateh7"
+    description = "Zygisk backend for Developer_fateh7"
     entrypoint = "org.frknkrc44.hma_oss.zygote.ZygoteEntry"
-    archiveName = "${rootProject.name}-ZYGISK-${android.defaultConfig.versionName}"
+    archiveName = "Developer_fateh7-ZYGISK-${android.defaultConfig.versionName}"
     updateJson = "https://furkank.net/hma_oss_update_checker.json"
     isAddVariantToArchiveName = true
 }
