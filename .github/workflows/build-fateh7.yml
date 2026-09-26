@@ -1,0 +1,57 @@
+name: Build Developer_fateh7
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK platform
+        run: yes | sdkmanager "platforms;android-36" "build-tools;36.0.0" || true
+
+      - name: Fetch AndroidVMTools submodule
+        run: |
+          if [ ! -f external/AndroidVMTools/gradle/libs.versions.toml ]; then
+            rm -rf external/AndroidVMTools
+            git clone --depth 1 --recurse-submodules \
+              https://github.com/aerath-stuff/AndroidVMTools external/AndroidVMTools
+          fi
+          ls external/AndroidVMTools/gradle/libs.versions.toml
+
+      - name: Prepare build config
+        run: |
+          printf 'officialBuild=true\nlocalBuild=true\n' > local.properties
+          chmod +x gradlew
+
+      - name: Build manager APK
+        run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Build Zygisk module
+        run: ./gradlew :zygote:assembleRelease --no-daemon --stacktrace
+        continue-on-error: true
+
+      - name: Upload outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: Developer_fateh7-build
+          if-no-files-found: warn
+          path: |
+            app/build/outputs/apk/**/*.apk
+            zygote/build/outputs/**/*.zip
+            zygote/build/outputs/**/*.apk

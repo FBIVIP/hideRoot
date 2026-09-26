@@ -1,6 +1,0 @@
-id=roothider
-name=RootHider (Zygisk)
-version=v1.0
-versionCode=1
-author=fateh7
-description=Native libc hooks + /proc scrubbing to hide root artifacts from targeted apps. Pair with Shamiko + PIF.

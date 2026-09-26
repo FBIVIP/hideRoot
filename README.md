@@ -1,58 +1,52 @@
-# RootHider Suite
+<div align="center">
+  <h2>HMA-OSS</h2>
 
-Root-hiding for a device **you own**, driven from **one app**.
+  <img src="HideMyAss-OSS.svg" alt="HMA-OSS Logo" style="max-width:360px;width:60%;height:auto;">
 
-- **RootHider app (one APK)** — this is BOTH the LSPosed module AND the home
-  page you manage everything from (`lsposed/`). It hides root, hides apps you
-  choose from a target, and adds **anti-hook-detection**.
-- **RootHider Zygisk module** — the native layer (`zygisk/`), flashed once in
-  the background. It reads its target list from a file the app writes.
+  <p>
+    <a href="https://github.com/frknkrc44/HMA-OSS" style="text-decoration:none">
+      <img src="https://img.shields.io/github/stars/frknkrc44/HMA-OSS?label=Stars&logo=github">
+    </a>
+    <a href="https://github.com/frknkrc44/HMA-OSS/actions" style="text-decoration:none">
+      <img src="https://img.shields.io/github/actions/workflow/status/frknkrc44/HMA-OSS/main.yml?branch=master&logo=github">
+    </a>
+    <a href="https://github.com/frknkrc44/HMA-OSS/releases/latest" style="text-decoration:none">
+      <img src="https://img.shields.io/github/v/release/frknkrc44/HMA-OSS?label=Release">
+    </a>
+    <a href="https://github.com/frknkrc44/HMA-OSS/releases/latest" style="text-decoration:none">
+      <img src="https://img.shields.io/github/downloads/frknkrc44/HMA-OSS/total">
+    </a>
+    <a href="https://t.me/aerathfuns" style="text-decoration:none">
+      <img src="https://img.shields.io/badge/Telegram-Channel-blue.svg?logo=telegram">
+    </a>
+    <a href="https://choosealicense.com/licenses/gpl-3.0/" style="text-decoration:none">
+      <img src="https://img.shields.io/github/license/frknkrc44/HMA-OSS?label=License">
+    </a>
+  </p>
+</div>
 
-You install the app once and flash the Zygisk module once; after that you work
-only from the app's home page.
+---
 
-## What each layer does
+- **English**
+- [中文（简体）](README_zh_CN.md)
+- [Türkçe](README_tr.md)
+- [日本語](README_ja.md)
+- [Indonesia](README_id.md)
 
-**App / LSPosed layer** (`lsposed/RootHiderHook.java`): File/Runtime/Process,
-PackageManager (root + chosen-app hiding), SystemProperties incl. **locked-
-bootloader spoof**, Settings, `/proc` line filtering, Debug/SELinux, and
-**anti-hook-detection** (scrubs stack traces and blocks `Class.forName` for
-Xposed/LSPosed/Frida detector classes).
+## About this module
 
-**Zygisk layer** (`zygisk/jni/module.cpp`): libc hooks
-(access/stat/open/openat/fopen/readlinkat/statfs/`syscall`), scrubbed
-`/proc/self/{maps,mounts,mountinfo,status}`, locked-bootloader props,
-self-hide, and **auto re-hook of libraries loaded later** via a `dlopen` hook.
+Although it's bad practice to detect the installation of specific apps, not every app using root provides random package name support. In this case, if apps related to root (such as Fake Location and Storage Isolation) are detected, it is tantamount to detecting that the device is rooted.
 
-## Build (GitHub Actions)
+Additionally, some apps use various loopholes to acquire your app list, in order to use it as fingerprinting data or for other nefarious purposes.
 
-Push to GitHub. Two artifacts are produced:
-- **RootHider-LSPosed-APK** — the single manager app.
-- **RootHider-Zygisk** — the flashable native module.
+This module can work as an Zygisk module to hide apps or reject app list requests.
 
-## Install (once)
+## About HMA-OSS
 
-1. Magisk → enable **Zygisk** → reboot.
-2. Flash **RootHider-Zygisk** → reboot.
-3. Install **RootHider-LSPosed-APK**, open the **LSPosed manager**, enable the
-   module, and **scope it to your target app(s)**.
-4. Open the **RootHider app** → add your protected apps + apps to hide →
-   **Save & Apply** (grant root when asked) → force-stop the target app.
+https://github.com/frknkrc44/HMA-OSS/wiki
 
-## Complete the setup
+## I want to contribute translation
+You can contribute translation [here](https://crowdin.com/project/frknkrc44-hma-oss).
 
-- One unmount/hider (ReZygisk + NoHello, or Zygisk Next) for memory-based
-  Zygisk detection. Do not mix Shamiko with ReZygisk.
-- PlayIntegrityFix for attestation.
-
-## Honest limits
-
-Inline `svc` syscalls (need seccomp), memory-based Zygisk detection (the
-unmounter's job), and Play Integrity STRONG (hardware-backed) are not solved
-by hooks. This is strong against most on-device checks, not a guarantee.
-
-## Note on XSharedPreferences
-
-The app saves your "hide" list to its own prefs; the LSPosed module reads it
-via XSharedPreferences (that is why `xposedminversion` is 93). The Zygisk
-target list is written to `/data/adb/roothider/target.txt` with root.
+## Update log
+[Reference to the commits page](https://github.com/frknkrc44/HMA-OSS/commits)

@@ -1,4 +1,0 @@
--keep class com.fateh7.roothider.RootHiderHook { *; }
--keep class com.fateh7.roothider.MainActivity { *; }
--keep class com.fateh7.roothider.Config { *; }
--keepattributes *Annotation*

@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- Packages this module suggests to scope to in the LSPosed manager.
-         Replace with your real target package(s). -->
-    <string-array name="xposed_scope">
-        <item>com.target.app</item>
-    </string-array>
-</resources>

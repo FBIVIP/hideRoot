@@ -1,3 +1,0 @@
-# Sample target list. This is copied to /data/adb/roothider/target.txt on install
-# (only if that file does not already exist). One package per line.
-# com.target.app
