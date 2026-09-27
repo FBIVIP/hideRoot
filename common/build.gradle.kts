@@ -25,9 +25,6 @@ android {
         buildConfigField("int", "CONFIG_VERSION", configVerCode.toString())
         buildConfigField("int", "SERVICE_VERSION", serviceVerCode.toString())
         buildConfigField("int", "MIN_BACKUP_VERSION", minBackupVerCode.toString())
-        // Must equal the manager applicationId (appId): Constants.PROVIDER_AUTHORITY
-        // is "${APP_PACKAGE_NAME}.ServiceProvider" and has to match the manifest's
-        // "${applicationId}.ServiceProvider" for the zygote <-> app IPC to bind.
         buildConfigField("String", "APP_PACKAGE_NAME", "\"$appId\"")
         buildConfigField("String", "APP_VERSION_NAME", "\"$appVerName\"")
         buildConfigField("int", "APP_VERSION_CODE", appVerCode.toString())
@@ -40,6 +37,5 @@ kotlin {
 
 dependencies {
     api(libs.kotlinx.serialization.json)
-
-    compileOnly(projects.stub)
+    compileOnly(libs.dev.rikka.hidden.stub)
 }

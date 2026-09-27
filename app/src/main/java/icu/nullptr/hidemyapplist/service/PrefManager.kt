@@ -63,11 +63,11 @@ object PrefManager {
         set(value) = pref.edit { putBoolean(PREF_BLACK_DARK_THEME, value) }
 
     var followSystemAccent: Boolean
-        get() = pref.getBoolean(PREF_FOLLOW_SYSTEM_ACCENT, true)
+        get() = pref.getBoolean(PREF_FOLLOW_SYSTEM_ACCENT, false)
         set(value) = pref.edit { putBoolean(PREF_FOLLOW_SYSTEM_ACCENT, value) }
 
     var themeColor: String
-        get() = pref.getString(PREF_THEME_COLOR, "MATERIAL_BLUE")!!
+        get() = pref.getString(PREF_THEME_COLOR, "MATERIAL_GREEN")!!
         set(value) = pref.edit { putString(PREF_THEME_COLOR, value) }
 
     var hideIcon: Boolean
@@ -108,12 +108,12 @@ object PrefManager {
         set(value) = pref.edit { putInt(PREF_ENABLE_INTERNET, value) }
 
     fun setEnableInternet(value: Boolean) {
-            enableInternet = if (value) {
-                    Constants.ENABLE_INTERNET_ON
-                } else {
-                    Constants.ENABLE_INTERNET_OFF
-                }
+        enableInternet = if (value) {
+            Constants.ENABLE_INTERNET_ON
+        } else {
+            Constants.ENABLE_INTERNET_OFF
         }
+    }
 
     var disableUpdate: Boolean
         get() = pref.getBoolean(PREF_DISABLE_UPDATE, false)

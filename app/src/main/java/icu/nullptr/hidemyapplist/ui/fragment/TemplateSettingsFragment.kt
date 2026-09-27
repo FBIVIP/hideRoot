@@ -2,6 +2,7 @@ package icu.nullptr.hidemyapplist.ui.fragment
 
 import android.os.Bundle
 import android.view.View
+import androidx.activity.addCallback
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.clearFragmentResultListener
@@ -15,7 +16,6 @@ import dev.androidbroadcast.vbpd.viewBinding
 import icu.nullptr.hidemyapplist.service.ConfigManager
 import icu.nullptr.hidemyapplist.ui.util.navController
 import icu.nullptr.hidemyapplist.ui.util.navigate
-import icu.nullptr.hidemyapplist.ui.util.registerOnBackCallback
 import icu.nullptr.hidemyapplist.ui.util.setEdge2EdgeFlags
 import icu.nullptr.hidemyapplist.ui.util.setupToolbar
 import icu.nullptr.hidemyapplist.ui.viewmodel.TemplateSettingsViewModel
@@ -57,8 +57,7 @@ class TemplateSettingsFragment : Fragment(R.layout.fragment_template_settings) {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        registerOnBackCallback { onBack(false) }
-
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner) { onBack(false) }
         setupToolbar(
             toolbar = binding.toolbar,
             title = getString(R.string.title_template_settings),

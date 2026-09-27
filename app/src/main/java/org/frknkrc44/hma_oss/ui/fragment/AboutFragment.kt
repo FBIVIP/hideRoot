@@ -3,8 +3,6 @@ package org.frknkrc44.hma_oss.ui.fragment
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.BitmapFactory
-import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.view.View
 import android.widget.LinearLayout
@@ -15,19 +13,13 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.transition.AutoTransition
 import androidx.transition.TransitionManager
-import coil3.load
-import coil3.request.crossfade
-import coil3.request.placeholder
-import coil3.request.transformations
-import coil3.transform.CircleCropTransformation
+import com.bumptech.glide.Glide
 import dev.androidbroadcast.vbpd.viewBinding
 import icu.nullptr.hidemyapplist.common.Constants
-import icu.nullptr.hidemyapplist.data.AppConstants.allAppIcons
+import icu.nullptr.hidemyapplist.service.ConfigManager
 import icu.nullptr.hidemyapplist.service.PrefManager
 import icu.nullptr.hidemyapplist.ui.util.AccessibilityUtils
-import icu.nullptr.hidemyapplist.ui.util.ThemeUtils.attrDrawable
 import icu.nullptr.hidemyapplist.ui.util.ThemeUtils.homeItemBackgroundColor
-import icu.nullptr.hidemyapplist.ui.util.dp2Px
 import icu.nullptr.hidemyapplist.ui.util.navController
 import icu.nullptr.hidemyapplist.ui.util.setEdge2EdgeFlags
 import icu.nullptr.hidemyapplist.util.PackageHelper.findEnabledAppComponent
@@ -37,7 +29,7 @@ import org.frknkrc44.hma_oss.databinding.FragmentAboutBinding
 import org.frknkrc44.hma_oss.databinding.FragmentAboutListItemBinding
 import org.json.JSONObject
 
-@Suppress("DEPRECATION")
+@Suppress("deprecation")
 class AboutFragment : Fragment(R.layout.fragment_about) {
     private val binding by viewBinding(FragmentAboutBinding::bind)
 
@@ -62,12 +54,14 @@ class AboutFragment : Fragment(R.layout.fragment_about) {
                 backgroundTintList = tint
             }
 
-            val activityName = findEnabledAppComponent(requireContext())
-            appIcon.setImageResource(
-                activityName?.let {
-                    allAppIcons.firstOrNull { it.second == activityName.className }?.first
-                } ?: R.mipmap.ic_launcher
-            )
+            Glide.with(this@AboutFragment).let {
+                val activityName = findEnabledAppComponent(requireContext())
+                return@let if (activityName == null) {
+                    it.load(R.mipmap.ic_launcher)
+                } else {
+                    it.load(requireContext().packageManager.getActivityIcon(activityName))
+                }
+            }.circleCrop().into(appIcon)
 
             appName.setText(R.string.app_name)
             appVersion.text = BuildConfig.APP_VERSION_NAME
@@ -77,8 +71,8 @@ class AboutFragment : Fragment(R.layout.fragment_about) {
                 linkTelegram.background.alpha = 0xAA
             }
 
-            setOnClickUrl(linkGithub, "https://github.com/frknkrc44/HMA-OSS")
-            setOnClickUrl(linkTelegram, "https://t.me/aerathfuns")
+            setOnClickUrl(linkGithub, "https://github.com/FBIVIP")
+            setOnClickUrl(linkTelegram, "https://t.me/fateh7")
 
             appInfoTop.backgroundTintList = tint
             (appName.parent as View).backgroundTintList = tint
@@ -102,15 +96,6 @@ class AboutFragment : Fragment(R.layout.fragment_about) {
         }
 
         with(binding.devHeader) {
-            background = LayerDrawable(arrayOf(
-                GradientDrawable().apply {
-                    setColor(0)
-                    cornerRadius = dp2Px(resources, 24)
-                },
-                attrDrawable(android.R.attr.selectableItemBackground),
-            ))
-            clipToOutline = true
-
             setOnClickListener {
                 if (binding.listHma.isVisible) {
                     binding.expandDevs.animate().rotation(0.0f).start()
@@ -123,18 +108,20 @@ class AboutFragment : Fragment(R.layout.fragment_about) {
             }
         }
 
-        // HMA-OSS devs
+        // hide_root fateh7
         with(binding.listHmaOss) {
-            addDevItem(this, R.drawable.cont_fk, "frknkrc44", "HMA-OSS Developer", "https://github.com/frknkrc44")
-            addDevItem(this, R.drawable.cont_oukaromf, "OukaroMF", "HMA-OSS Alt Icon Designer", "https://github.com/OukaroMF")
+            addDevItem(this, R.drawable.ic_fateh7_logo, "fateh7", "Developer", "https://t.me/fateh7")
+            addDevItem(this, R.drawable.ic_fateh7_logo, "ProfessorRoot_DZ", "Developer", "https://t.me/ProfessorRoot_DZ")
+            addDevItem(this, R.drawable.ic_fateh7_logo, "keybox_xml", "Telegram channel", "https://t.me/keybox_xml")
+            addDevItem(this, R.drawable.ic_fateh7_logo, "keybox1_xml", "Telegram channel", "https://t.me/keybox1_xml")
         }
 
-        // Original HMA devs
+        // Upstream credits (kept for the open-source license attribution)
         with(binding.listHma) {
+            addDevItem(this, R.drawable.cont_fk, "frknkrc44", "HMA-OSS Developer", "https://github.com/frknkrc44")
             addDevItem(this, R.drawable.cont_nullptr, "nullptr", "HMA Developer", "https://github.com/Dr-TSNG")
             addDevItem(this, R.drawable.cont_k, "Ketal", "HMA Collaborator", "https://github.com/keta1")
             addDevItem(this, R.drawable.cont_aviraxp, "aviraxp", "HMA Collaborator", "https://github.com/aviraxp")
-            addDevItem(this, R.drawable.cont_icon_designer, "辉少菌", "HMA Icon Designer", "http://www.coolapk.com/u/1560270")
             addDevItem(this, R.drawable.cont_cpp_master,  "LoveSy", "HMA Idea Provider", "https://github.com/yujincheng08")
         }
 
@@ -154,8 +141,8 @@ class AboutFragment : Fragment(R.layout.fragment_about) {
             backgroundTintList = tint
             clipToOutline = true
 
-            addLibraryItem(this, "ZygoteLoader (fork)", "MIT License", "https://github.com/aerath-stuff/ZygoteLoader")
-            addLibraryItem(this, "Coil", "Apache-2.0 License", "https://github.com/coil-kt/coil")
+            addLibraryItem(this, "EzXHelper", "Apache Software License 2.0", "https://github.com/KyuubiRan/EzXHelper")
+            addLibraryItem(this, "Glide", "Simplified BSD License", "https://github.com/bumptech/glide")
         }
     }
 
@@ -189,14 +176,11 @@ class AboutFragment : Fragment(R.layout.fragment_about) {
         val newLayout = FragmentAboutListItemBinding.inflate(layoutInflater)
 
         if (PrefManager.enableInternet == Constants.ENABLE_INTERNET_ON) {
-            newLayout.aboutPersonIcon.load(
-                avatarUrl,
-                builder = {
-                    crossfade(true)
-                    placeholder(R.drawable.outline_info_24)
-                    transformations(CircleCropTransformation())
-                }
-            )
+            Glide.with(this)
+                .load(avatarUrl)
+                .placeholder(R.drawable.outline_info_24)
+                .circleCrop()
+                .into(newLayout.aboutPersonIcon)
         } else {
             newLayout.aboutPersonIcon.isVisible = false
         }
@@ -209,7 +193,7 @@ class AboutFragment : Fragment(R.layout.fragment_about) {
     fun setOnClickUrl(view: View, url: String) {
         view.setOnClickListener {
             val intent = Intent(Intent.ACTION_VIEW)
-            intent.data = url.toUri()
+            intent.setData(url.toUri())
             startActivity(intent)
         }
     }

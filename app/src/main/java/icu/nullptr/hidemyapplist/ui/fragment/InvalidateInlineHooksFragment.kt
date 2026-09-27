@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.MenuItem
 import android.view.View
 import android.widget.TextView
+import androidx.activity.addCallback
 import androidx.appcompat.widget.SearchView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.flowWithLifecycle
@@ -18,7 +19,6 @@ import icu.nullptr.hidemyapplist.ui.adapter.AppScopeAdapter
 import icu.nullptr.hidemyapplist.ui.util.ThemeUtils.homeItemBackgroundColor
 import icu.nullptr.hidemyapplist.ui.util.ThemeUtils.themeColor
 import icu.nullptr.hidemyapplist.ui.util.navController
-import icu.nullptr.hidemyapplist.ui.util.registerOnBackCallback
 import icu.nullptr.hidemyapplist.ui.util.setEdge2EdgeFlags
 import icu.nullptr.hidemyapplist.ui.util.setupToolbar
 import icu.nullptr.hidemyapplist.ui.util.showToast
@@ -35,9 +35,8 @@ import org.frknkrc44.hma_oss.databinding.FragmentAppSelectBinding
  *
  * Lets the user pick apps and then wipes their compiled ART artifacts
  * ("cleanup libart.so"). The runtime regenerates a fresh image on next launch
- * so our inline hooks are re-applied from a clean state. This is a heavy,
- * one-shot maintenance action: nothing is persisted, and it is meant only for
- * apps that refuse to open because their hook state got corrupted.
+ * so our hooks are re-applied from a clean state. One-shot maintenance action,
+ * meant only for apps that refuse to open because their hook state got corrupted.
  */
 class InvalidateInlineHooksFragment : Fragment(R.layout.fragment_app_select) {
 
@@ -156,7 +155,9 @@ class InvalidateInlineHooksFragment : Fragment(R.layout.fragment_app_select) {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        registerOnBackCallback { navController.navigateUp() }
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner) {
+            navController.navigateUp()
+        }
 
         setupToolbar(
             toolbar = binding.toolbar,

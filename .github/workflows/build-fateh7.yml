@@ -1,44 +1,44 @@
 name: Build Developer_fateh7
+
 on:
   push:
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
+
       - uses: android-actions/setup-android@v3
         with:
           packages: ''
-      - name: Fetch AndroidVMTools submodule
-        run: |
-          if [ ! -f external/AndroidVMTools/gradle/libs.versions.toml ]; then
-            rm -rf external/AndroidVMTools
-            git clone --depth 1 --recurse-submodules https://github.com/aerath-stuff/AndroidVMTools external/AndroidVMTools
-          fi
-          ls external/AndroidVMTools/gradle/libs.versions.toml
+
       - name: Install SDK packages
         run: yes | sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
       - name: Prepare build config
         run: |
           printf 'officialBuild=true\nlocalBuild=true\n' > local.properties
           chmod +x gradlew
-      - name: Build manager APK
+
+      # The app APK is BOTH the manager and the LSPosed module (all in one).
+      - name: Build app (LSPosed module + manager)
         run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
-      - name: Build Zygisk module
-        run: ./gradlew :zygote:assembleRelease --no-daemon --stacktrace
-        continue-on-error: true
-      - uses: actions/upload-artifact@v4
+
+      - name: List outputs
+        if: always()
+        run: find app/build/outputs/apk -name '*.apk' -print 2>/dev/null || true
+
+      - name: Upload APK
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: Developer_fateh7-build
+          name: Developer_fateh7-app
           if-no-files-found: warn
-          path: |
-            app/build/outputs/apk/**/*.apk
-            zygote/build/**/*.zip
-            zygote/build/outputs/**/*.apk
+          path: app/build/outputs/apk/**/*.apk

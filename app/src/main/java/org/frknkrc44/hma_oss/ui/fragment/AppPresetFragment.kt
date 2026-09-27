@@ -5,7 +5,6 @@ import android.view.View
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.navArgs
 import icu.nullptr.hidemyapplist.MyApp.Companion.hmaApp
-import icu.nullptr.hidemyapplist.common.CollectionUtils.sync
 import icu.nullptr.hidemyapplist.service.PrefManager
 import icu.nullptr.hidemyapplist.ui.fragment.AppSelectFragment
 import icu.nullptr.hidemyapplist.util.PackageHelper
@@ -13,7 +12,7 @@ import icu.nullptr.hidemyapplist.util.PackageHelper.Comparators
 import kotlinx.coroutines.launch
 import org.frknkrc44.hma_oss.ui.adapter.AppPresetAdapter
 
-class AppPresetFragment : AppSelectFragment() {
+class AppPresetFragment() : AppSelectFragment() {
 
     override val firstComparator: Comparator<String> = Comparator.comparing(PackageHelper::exists).reversed()
 
@@ -45,7 +44,8 @@ class AppPresetFragment : AppSelectFragment() {
         val packages = adapter.packages.sortedWith(firstComparator.then(comparator))
 
         lifecycleScope.launch {
-            adapter.packages.sync(packages)
+            adapter.packages.clear()
+            adapter.packages += packages
         }
     }
 

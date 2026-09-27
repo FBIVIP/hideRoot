@@ -1,3 +1,4 @@
+import com.android.build.gradle.internal.api.BaseVariantOutputImpl
 import com.google.gson.JsonParser
 import org.jose4j.json.internal.json_simple.JSONObject
 import java.io.DataInputStream
@@ -6,6 +7,7 @@ import java.net.URL
 
 plugins {
     alias(libs.plugins.agp.app)
+    alias(libs.plugins.autoresconfig)
     alias(libs.plugins.refine)
     alias(libs.plugins.kotlin)
     alias(libs.plugins.kotlin.serialization)
@@ -55,7 +57,7 @@ val crowdinApiKey: String by rootProject.extra
 val localBuild: Boolean by rootProject.extra
 val officialBuild: Boolean by rootProject.extra
 
-@Suppress("DEPRECATION")
+@Suppress("deprecation")
 afterEvaluate {
     val srcDir = android.sourceSets["main"].assets.srcDirs.first()
     logger.lifecycle("Asset dir: $srcDir")
@@ -70,8 +72,6 @@ afterEvaluate {
     )
 
     val urlConnection = if (crowdinApiKey.isNotBlank()) {
-        logger.lifecycle("Found Crowdin API key")
-
         val url = URL("https://crowdin.com/api/v2/projects/$crowdinProjectId/members")
         (url.openConnection() as HttpURLConnection).apply {
             setRequestProperty("authorization", "Bearer $crowdinApiKey")
@@ -119,20 +119,14 @@ android {
     namespace = appPackageName
 
     defaultConfig {
-        // Visible package name in Android (launcher / settings / app list).
-        // namespace stays "org.frknkrc44.hma_oss" so R/BuildConfig/databinding
-        // keep resolving, while the installed id becomes appId.
+        // Visible package name in Android; namespace stays org.frknkrc44.hma_oss
+        // so R/BuildConfig/databinding keep resolving.
         applicationId = appId
-        buildConfigField("String[]", "SUPPORTED_LOCALES", generateSupportedLocales())
     }
 
     buildFeatures {
         buildConfig = true
         viewBinding = true
-    }
-
-    base {
-        archivesName = "${rootProject.name}-${defaultConfig.versionName!!.replace("/", "_")}"
     }
 
     packaging {
@@ -152,49 +146,37 @@ kotlin {
     jvmToolchain(21)
 }
 
-// Inspired from https://github.com/XayahSuSuSu/Android-DataBackup/pull/260
-fun generateSupportedLocales(): String {
-    val foundLocales = StringBuilder()
-    foundLocales.append("new String[]{")
-
-    fun appendLangCode(code: String) {
-        foundLocales.append("\"").append(code).append("\"").append(",")
-    }
-
-    appendLangCode("SYSTEM")
-
-    fileTree(android.sourceSets["main"].res.srcDirs.first()).files.mapNotNull {
-        if (it.name == "strings.xml") {
-            val baseName = it.parent.substringAfterLast(File.separator)
-            if (baseName == "values") {
-                "en"
-            } else {
-                baseName.substringAfter('-')
-                    .replace("-r", "-")
-            }
-        } else {
-            null
-        }
-    }.sortedWith { file1, file2 ->
-        file1.compareTo(file2)
-    }.forEach { appendLangCode(it) }
-
-    return "${foundLocales.removeSuffix(",")}}"
+autoResConfig {
+    generateClass.set(true)
+    generateRes.set(false)
+    generatedClassFullName.set("icu.nullptr.hidemyapplist.util.LangList")
+    generatedArrayFirstItem.set("SYSTEM")
 }
 
 dependencies {
     implementation(projects.common)
+    runtimeOnly(projects.xposed)
 
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
     implementation(libs.androidx.preference.ktx)
     implementation(libs.androidx.swiperefreshlayout)
-    implementation(libs.io.coilkt.coil3.coil)
-    implementation(libs.io.coilkt.coil3.coil.network.okhttp)
+    implementation(libs.com.github.bumptech.glide)
     implementation(libs.dev.androidbroadcast.vbpd)
     implementation(libs.dev.androidbroadcast.vbpd.reflection)
+    implementation(libs.com.github.topjohnwu.libsu.core)
     implementation(libs.dev.rikka.hidden.compat)
+    implementation(libs.me.zhanghai.android.appiconloader)
+    compileOnly(libs.dev.rikka.hidden.stub)
 
     implementation(libs.androidx.appcompat.appcompat)
     implementation(libs.material)
+}
+
+android.applicationVariants.all {
+    outputs.all {
+        (this as BaseVariantOutputImpl).apply {
+            outputFileName = "${rootProject.name.replace(" ", "_")}-${versionName}-${buildType.name}.apk"
+        }
+    }
 }

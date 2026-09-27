@@ -1,24 +1,16 @@
 package org.frknkrc44.hma_oss.ui.fragment
 
 import android.content.Intent
-import android.content.res.ColorStateList
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
-import android.os.SystemClock.elapsedRealtime
-import android.view.Gravity
-import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Chronometer
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.annotation.DrawableRes
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.net.toUri
-import androidx.core.view.isVisible
-import androidx.core.widget.TextViewCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -26,12 +18,14 @@ import dev.androidbroadcast.vbpd.viewBinding
 import icu.nullptr.hidemyapplist.MyApp.Companion.hmaApp
 import icu.nullptr.hidemyapplist.common.Constants
 import icu.nullptr.hidemyapplist.data.fetchLatestUpdate
+import icu.nullptr.hidemyapplist.service.ConfigManager
 import icu.nullptr.hidemyapplist.service.PrefManager
 import icu.nullptr.hidemyapplist.service.ServiceClient
 import icu.nullptr.hidemyapplist.ui.util.ThemeUtils.attrDrawable
 import icu.nullptr.hidemyapplist.ui.util.ThemeUtils.getColor
 import icu.nullptr.hidemyapplist.ui.util.ThemeUtils.homeItemBackgroundColor
 import icu.nullptr.hidemyapplist.ui.util.ThemeUtils.themeColor
+import icu.nullptr.hidemyapplist.ui.util.contentResolver
 import icu.nullptr.hidemyapplist.ui.util.dp2Px
 import icu.nullptr.hidemyapplist.ui.util.isTestBuild
 import icu.nullptr.hidemyapplist.ui.util.navigate
@@ -44,6 +38,10 @@ import kotlinx.coroutines.withContext
 import org.frknkrc44.hma_oss.BuildConfig
 import org.frknkrc44.hma_oss.R
 import org.frknkrc44.hma_oss.databinding.FragmentHomeBinding
+import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.concurrent.thread
 
 /**
@@ -54,44 +52,54 @@ import kotlin.concurrent.thread
 class HomeFragment : Fragment(R.layout.fragment_home) {
     private val binding by viewBinding(FragmentHomeBinding::bind)
 
+    private val backupSAFLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) backup@{ uri ->
+            if (uri == null) return@backup
+            ConfigManager.configFile.inputStream().use { input ->
+                contentResolver.openOutputStream(uri).use { output ->
+                    if (output == null) showToast(R.string.home_export_failed)
+                    else input.copyTo(output)
+                }
+            }
+            showToast(R.string.home_exported)
+        }
+
+    private val restoreSAFLauncher =
+        registerForActivityResult(ActivityResultContracts.GetContent()) restore@{ uri ->
+            if (uri == null) return@restore
+            runCatching {
+                val backup = contentResolver
+                    .openInputStream(uri)?.reader().use { it?.readText() }
+                    ?: throw IOException(getString(R.string.home_import_file_damaged))
+                ConfigManager.importConfig(backup)
+                showToast(R.string.home_import_successful)
+            }.onFailure {
+                it.printStackTrace()
+                MaterialAlertDialogBuilder(requireContext())
+                    .setCancelable(false)
+                    .setTitle(R.string.home_import_failed)
+                    .setMessage(it.message)
+                    .setPositiveButton(android.R.string.ok, null)
+                    .setNegativeButton(R.string.show_crash_log) { _, _ ->
+                        MaterialAlertDialogBuilder(requireActivity())
+                            .setCancelable(false)
+                            .setTitle(R.string.home_import_failed)
+                            .setMessage(it.stackTraceToString())
+                            .setPositiveButton(android.R.string.ok, null)
+                            .show()
+                    }
+                    .show()
+            }
+        }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         with(binding.toolbar) {
             setupToolbar(
                 toolbar = this,
                 title = getString(R.string.app_name),
-                menuRes = R.menu.menu_home,
-                onMenuOptionSelected = ::onMenuOptionSelected,
+                isHomeToolbar = true,
             )
             // isTitleCentered = true
-
-            setOnLongClickListener {
-                val dialog = MaterialAlertDialogBuilder(context)
-                    .setTitle(R.string.app_name)
-                    .create()
-
-                dialog.setView(Chronometer(context).apply {
-                    layoutParams = ViewGroup.LayoutParams(-1, -2)
-                    base = elapsedRealtime() + 3000
-                    textSize = dp2Px(resources, 24)
-                    gravity = Gravity.CENTER
-                    typeface = Typeface.SERIF
-                    onChronometerTickListener = {
-                        if (elapsedRealtime() >= base) {
-                            stop()
-                            dialog.dismiss()
-
-                            // is it really final countdown?
-                            isTheFinalCountDown
-                        }
-                    }
-                    isCountDown = true
-                    start()
-                })
-
-                dialog.show()
-
-                true
-            }
         }
 
         setEdge2EdgeFlags(binding.root)
@@ -129,39 +137,45 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
 
                     when (i) {
                         0 -> {
-                            backgroundDrawable.cornerRadii = floatArrayOf(
-                                softCorner,
-                                softCorner,
-                                softCorner,
-                                softCorner,
-                                squareCorner,
-                                squareCorner,
-                                squareCorner,
-                                squareCorner
+                            backgroundDrawable.setCornerRadii(
+                                floatArrayOf(
+                                    softCorner,
+                                    softCorner,
+                                    softCorner,
+                                    softCorner,
+                                    squareCorner,
+                                    squareCorner,
+                                    squareCorner,
+                                    squareCorner
+                                )
                             )
                         }
                         childCount - 1 -> {
-                            backgroundDrawable.cornerRadii = floatArrayOf(
-                                squareCorner,
-                                squareCorner,
-                                squareCorner,
-                                squareCorner,
-                                softCorner,
-                                softCorner,
-                                softCorner,
-                                softCorner
+                            backgroundDrawable.setCornerRadii(
+                                floatArrayOf(
+                                    squareCorner,
+                                    squareCorner,
+                                    squareCorner,
+                                    squareCorner,
+                                    softCorner,
+                                    softCorner,
+                                    softCorner,
+                                    softCorner
+                                )
                             )
                         }
                         else -> {
-                            backgroundDrawable.cornerRadii = floatArrayOf(
-                                squareCorner,
-                                squareCorner,
-                                squareCorner,
-                                squareCorner,
-                                squareCorner,
-                                squareCorner,
-                                squareCorner,
-                                squareCorner
+                            backgroundDrawable.setCornerRadii(
+                                floatArrayOf(
+                                    squareCorner,
+                                    squareCorner,
+                                    squareCorner,
+                                    squareCorner,
+                                    squareCorner,
+                                    squareCorner,
+                                    squareCorner,
+                                    squareCorner
+                                )
                             )
                         }
                     }
@@ -188,9 +202,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                     .setMessage(
                         getString(R.string.about_how_to_use_description_1) +
                                 "\n\n" +
-                                getString(R.string.about_how_to_use_description_2) +
-                                "\n\n" +
-                                getString(R.string.about_how_to_use_description_3))
+                                getString(R.string.about_how_to_use_description_2))
                     .setNegativeButton(android.R.string.ok, null)
                     .show()
             }
@@ -236,6 +248,14 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             }
         }
 
+        with(binding.navStats) {
+            text1.text = getString(R.string.title_filter_logs)
+            icon.setImageResource(R.drawable.outline_cleaning_services_24)
+            root.setOnClickListener {
+                navigate(R.id.nav_stats)
+            }
+        }
+
         with(binding.navSettings) {
             text1.text = getString(R.string.title_settings)
             icon.setImageResource(R.drawable.outline_settings_24)
@@ -256,10 +276,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             if (PrefManager.systemWallpaper) background.alpha = 0xAA
 
             setOnClickListener {
-                navigate(
-                    R.id.nav_backup_restore,
-                    BackupRestoreFragmentArgs(true).toBundle()
-                )
+                val date = SimpleDateFormat("yyyy-MM-dd_HH.mm.ss", Locale.getDefault()).format(Date())
+                backupSAFLauncher.launch("HMA-OSS_config_$date.json")
             }
         }
 
@@ -267,10 +285,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             if (PrefManager.systemWallpaper) background.alpha = 0xAA
 
             setOnClickListener {
-                navigate(
-                    R.id.nav_backup_restore,
-                    BackupRestoreFragmentArgs(false).toBundle()
-                )
+                restoreSAFLauncher.launch("application/json")
             }
         }
 
@@ -281,8 +296,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
 
     fun waitForService() {
         var serviceVersion = ServiceClient.serviceVersion
-        var workMode = ServiceClient.managerWorkMode
-        loadEnabledIndicator(serviceVersion, workMode)
+        loadEnabledIndicator(serviceVersion)
         if (serviceVersion > 0) {
             return
         }
@@ -295,25 +309,16 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             }
 
             if (serviceVersion > 0) {
-                workMode = ServiceClient.managerWorkMode
-
                 lifecycleScope.launch {
-                    loadEnabledIndicator(serviceVersion, workMode)
+                    loadEnabledIndicator(serviceVersion)
                 }
             }
         }
     }
 
-    fun loadEnabledIndicator(serviceVersion: Int, workMode: Int) {
-        hmaApp.loadConfiguration()
-
-        val isWorking = serviceVersion > 0 && workMode != Constants.MANAGER_WORK_MODE_UNKNOWN
-        val isCrashed = workMode == Constants.MANAGER_WORK_MODE_CRASHED
-        val isNoHooks = isCrashed || workMode == Constants.MANAGER_WORK_MODE_NO_HOOKS
-
+    fun loadEnabledIndicator(serviceVersion: Int) {
         var color = when {
-            !isWorking -> getColor(R.color.invalid)
-            isNoHooks -> getColor(R.color.md_theme_material_amber_light_error)
+            serviceVersion == 0 -> getColor(R.color.invalid)
             else -> themeColor(android.R.attr.colorPrimary)
         }
 
@@ -323,72 +328,38 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
 
         with(binding.statusCard) {
             root.setCardBackgroundColor(color)
+            root.outlineAmbientShadowColor = color
+            root.outlineSpotShadowColor = color
 
-            if (isWorking) {
-                if (isNoHooks) {
-                    val colorError = ColorStateList.valueOf(
-                        getColor(R.color.md_theme_material_amber_dark_error))
+            if (serviceVersion > 0) {
+                moduleStatusIcon.setImageResource(R.drawable.sentiment_calm_24px)
+                val versionNameSimple = ServiceClient.serviceVersionName ?: BuildConfig.VERSION_NAME
+                moduleStatus.text =
+                    getString(R.string.home_xposed_activated, versionNameSimple)
+                root.setOnLongClickListener {
+                    ConfigManager.saveConfig()
+                    showToast(android.R.string.ok)
 
-                    moduleStatus.setText(R.string.sick_mode_title)
-                    moduleStatus.setTextColor(colorError)
-                    setStatusIcon(R.drawable.sick_24px)
-                    serviceStatus.setText(R.string.sick_mode_description)
-                    serviceStatus.setTextColor(colorError)
-                    filterCount.isVisible = false
+                    true
+                }
 
-                    migrateBtn.isVisible = !isCrashed
-                    @Suppress("DEPRECATION")
-                    migrateBtn.setOnClickListener {
-                        navigate(R.id.nav_fix_issue)
-                    }
+                if (serviceVersion < org.frknkrc44.hma_oss.common.BuildConfig.SERVICE_VERSION) {
+                    serviceStatus.text =
+                        getString(R.string.home_xposed_service_old)
                 } else {
-                    val image = when(workMode) {
-                        Constants.MANAGER_WORK_MODE_LOADING -> R.drawable.sentiment_stressed_24px
-                        else -> R.drawable.sentiment_calm_24px
-                    }
-                    setStatusIcon(image)
-
-                    val versionNameSimple = ServiceClient.serviceVersionName ?: BuildConfig.VERSION_NAME
-                    moduleStatus.text =
-                        getString(R.string.home_xposed_activated, versionNameSimple)
-                    root.setOnLongClickListener {
-                        ServiceClient.reloadConfigFromFile()
-                        showToast(android.R.string.ok)
-
-                        true
-                    }
-
                     serviceStatus.text =
                         getString(R.string.home_xposed_service_on, serviceVersion)
-                    filterCount.visibility = View.VISIBLE
-                    filterCount.text =
-                        getString(R.string.home_xposed_filter_count, ServiceClient.filterCount)
                 }
+                filterCount.visibility = View.VISIBLE
+                filterCount.text =
+                    getString(R.string.home_xposed_filter_count, ServiceClient.filterCount)
             } else {
-                setStatusIcon(R.drawable.sentiment_very_dissatisfied_24px)
+                moduleStatusIcon.setImageResource(R.drawable.sentiment_very_dissatisfied_24px)
                 moduleStatus.setText(R.string.home_xposed_not_activated)
                 serviceStatus.setText(R.string.home_xposed_service_off)
-                filterCount.isVisible = false
+                filterCount.visibility = View.GONE
             }
-
-            TextViewCompat.setCompoundDrawableTintList(
-                moduleStatus, moduleStatus.textColors)
         }
-
-        val isHooks = !isNoHooks && isWorking
-
-        binding.manageApps.root.isVisible = isHooks
-        binding.manageTemplates.root.isVisible = isHooks
-        binding.managePresets.root.isVisible = isHooks
-        binding.navBulkConfigWizard.root.isVisible = isHooks
-        binding.navLogs.root.isVisible = isWorking // allow taking logs on NO_HOOKS or CRASHED status
-        binding.navSettings.root.isVisible = isHooks
-        (binding.backupConfig.parent as ViewGroup).isVisible = isHooks
-    }
-
-    private fun setStatusIcon(@DrawableRes res: Int) {
-        binding.statusCard.moduleStatus
-            .setCompoundDrawablesRelativeWithIntrinsicBounds(res, 0, 0, 0)
     }
 
     private fun loadDialogs() {
@@ -442,16 +413,6 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                         }
                         .show()
                 }
-            }
-        }
-    }
-
-    private fun onMenuOptionSelected(item: MenuItem) {
-        when (item.itemId) {
-            R.id.menu_info -> {
-                startActivity(Intent(Intent.ACTION_VIEW).apply {
-                    data = "https://github.com/frknkrc44/HMA-OSS/wiki/About-HMA%E2%80%90OSS".toUri()
-                })
             }
         }
     }

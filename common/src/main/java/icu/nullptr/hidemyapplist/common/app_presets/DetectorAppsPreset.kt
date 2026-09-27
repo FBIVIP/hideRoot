@@ -1,7 +1,6 @@
 package icu.nullptr.hidemyapplist.common.app_presets
 
 import android.content.pm.ApplicationInfo
-import icu.nullptr.hidemyapplist.common.Utils.containsMultiple
 
 class DetectorAppsPreset  : BasePreset(NAME) {
     companion object {
@@ -34,14 +33,18 @@ class DetectorAppsPreset  : BasePreset(NAME) {
         "wu.Zygisk.Detector",
         "com.atominvention.rootchecker",
         "com.joeykrim.rootcheck",
+        "com.studio.duckdetector",
+        "com.chuqniudetector",
+        "com.chunqiudetector",
         "com.longz.detector",
         "com.anycheck.app",
-        "by.sheerboy.femboydetector",
 
         // Add more detector apps (thanks @Yurii0307)
         "com.lingqing.detector",
         "com.android.nativetest",
         "com.youhu.laifu",
+        "chunqiu.safe.detector",
+        "chunqiu.safe",
         "wu.Rookie.Detector",
         "com.fkjc.zcro",
         "wu.keyChain.test",
@@ -68,16 +71,6 @@ class DetectorAppsPreset  : BasePreset(NAME) {
 
         // All Garfield packages
         if (packageName.startsWith("me.garfieldhan.")) {
-            return true
-        }
-
-        // Chunqiu detectors
-        if (packageName.containsMultiple("chunqiu", "chuqniu")) {
-            return true
-        }
-
-        // Duck Detector
-        if (packageName.endsWith(".duckdetector")) {
             return true
         }
 

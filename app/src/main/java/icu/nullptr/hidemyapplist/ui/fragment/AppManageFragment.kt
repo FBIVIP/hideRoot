@@ -8,7 +8,6 @@ import org.frknkrc44.hma_oss.R
 import org.frknkrc44.hma_oss.ui.fragment.AppSettingsV2FragmentArgs
 
 class AppManageFragment : AppSelectFragment() {
-    override fun getFragmentTitle() = getString(R.string.title_app_manage)
 
     override val firstComparator: Comparator<String> = Comparator.comparing(ConfigManager::isHideEnabled).reversed()
 

@@ -1,18 +1,16 @@
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.gradle.BaseExtension
-import java.util.Properties
+import org.jetbrains.kotlin.konan.properties.Properties
 
 plugins {
     alias(libs.plugins.kotlin) apply false
     alias(libs.plugins.agp.app) apply false
     alias(libs.plugins.agp.lib) apply false
     alias(libs.plugins.nav.safeargs.kotlin) apply false
-    alias(libs.plugins.com.github.aerathstuff.zygoteloader) apply false
 }
 
 fun String.execute(currentWorkingDir: File = file("./")): String {
-    // Never fail the build when git is missing or the ref does not exist
-    // (e.g. CI checkout on "main", or building from an extracted zip).
+    // Never fail the build when git is missing or the ref does not exist.
     return try {
         val out = providers.exec {
             workingDir = currentWorkingDir
@@ -38,11 +36,9 @@ val crowdinApiKey: String by extra(localProperties.getProperty("crowdinApiKey", 
 fun getUncommittedSuffix(): String {
     if (officialBuild) return ""
 
-    val shortRef = "git rev-parse --short HEAD".execute()
-
     if (ciBuild) {
         val headRefVal = providers.environmentVariable("GITHUB_HEAD_REF").orElse("HEAD").get()
-        return "$headRefVal-$shortRef"
+        return "-$headRefVal"
     }
 
     var returnedVal = ""
@@ -50,30 +46,20 @@ fun getUncommittedSuffix(): String {
     try {
         val branch = "git rev-parse --abbrev-ref HEAD".execute().split("/").last()
         if (branch != "master") {
-            returnedVal += "$branch-"
+            returnedVal += "-$branch"
         }
     } catch (_: Throwable) {}
-
-    returnedVal += shortRef
 
     val result = "git status -s".execute()
     if (result.isEmpty()) {
         return returnedVal
     }
 
-    return "$returnedVal+${result.count { it == '\n' } + 1}"
+    return "$returnedVal-dirty+${result.count { it == '\n' } + 1}"
 }
 
-val gitVersionName: String get() {
-    val suffix = getUncommittedSuffix()
-
-    return suffix.ifEmpty {
-        "oss-$gitCommitCountAfterOss"
-    }
-}
-
-// Falls back to 600 (=> versionName "oss-168") when git is unavailable.
-val gitCommitCount = "git rev-list refs/remotes/origin/master --count".execute().toIntOrNull() ?: 600
+val gitHasUncommittedSuffix = getUncommittedSuffix()
+val gitCommitCount = "git rev-list refs/remotes/origin/master --count".execute().toIntOrNull() ?: 594
 
 // 432 is the count of commits before license changed
 val gitCommitCountAfterOss = gitCommitCount - 432
@@ -82,7 +68,7 @@ val minSdkVer by extra(29)
 val targetSdkVer by extra(36)
 
 val appVerCode by extra(gitCommitCount + 0x6f7373) // commit count + 0xOSS
-val appVerName by extra(gitVersionName)
+val appVerName by extra("oss-${gitCommitCountAfterOss}${gitHasUncommittedSuffix}")
 
 /*
  * configVerCode, serviceVerCode and minBackupVerCode is used by other build.gradle.kts files
@@ -99,16 +85,12 @@ val serviceVerCode by extra(102)
 @Suppress("unused")
 val minBackupVerCode by extra(65)
 
-// Internal namespace: keep this UNCHANGED. It is the physical Kotlin/Java
-// package (R, BuildConfig, databinding, generated Magic.java) and must stay
-// "org.frknkrc44.hma_oss", otherwise hundreds of source files stop compiling.
+// Internal namespace (physical package: R, BuildConfig, databinding). Keep UNCHANGED.
 @Suppress("unused")
 val appPackageName by extra("org.frknkrc44.hma_oss")
 
-// Visible application id (the "package name" shown by Android in the app list,
-// settings, launcher, etc). Change ONLY this to rebrand the installed app.
-// It is threaded into: app applicationId + common BuildConfig.APP_PACKAGE_NAME
-// (which builds the ServiceProvider authority used for app <-> system_server IPC).
+// Visible package name shown by Android (launcher / settings / app list).
+// Change ONLY this to rebrand the installed app.
 @Suppress("unused")
 val appId by extra("com.developer.fateh7")
 
@@ -119,7 +101,6 @@ val androidSourceCompatibility = JavaVersion.VERSION_21
 val androidTargetCompatibility = JavaVersion.VERSION_21
 
 tasks.register("clean", Delete::class) {
-    description = "Clean the build directory"
     delete(rootProject.layout.buildDirectory)
 }
 
@@ -137,8 +118,6 @@ fun Project.configureBaseExtension() {
         }
 
         val config = localProperties.getProperty("fileDir")?.let {
-            logger.lifecycle("Using provided signing key")
-
             signingConfigs.create("config") {
                 storeFile = file(it)
                 storePassword = localProperties.getProperty("storePassword")
