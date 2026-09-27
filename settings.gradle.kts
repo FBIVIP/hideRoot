@@ -5,8 +5,6 @@ pluginManagement {
         gradlePluginPortal()
         google()
         mavenCentral()
-        maven("https://mirrors.cloud.tencent.com/nexus/repository/maven-public")
-        maven("https://maven.aliyun.com/repository/public")
     }
 }
 
@@ -15,8 +13,6 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven("https://mirrors.cloud.tencent.com/nexus/repository/maven-public")
-        maven("https://maven.aliyun.com/repository/public")
         maven("https://jitpack.io")
         maven("https://api.xposed.info/")
     }
